@@ -178,6 +178,7 @@
                         redraw();
                     }
                     showStatus('A jogosultságod megváltozott: ' + args[1], true);
+                    void loadMyRooms();
                 }
                 if (state.role === 'Owner') void loadParticipants();
                 break;
