@@ -13,7 +13,9 @@ builder.WebHost.UseStaticWebAssets();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddRazorPages();
-builder.Services.AddSignalR();
+// Egy vonal legfeljebb 5000 pontból állhat (kb. 20–50 bájt/pont JSON-ban), ezért a
+// SignalR alapértelmezett 32 KB-os bejövő üzenetkorlátja kevés lenne a hosszú vonalakhoz.
+builder.Services.AddSignalR(options => options.MaximumReceiveMessageSize = DrawingHub.MaxMessageBytes);
 
 var connection = builder.Configuration.GetConnectionString("MySql")
     ?? throw new InvalidOperationException("Hiányzik a MySQL kapcsolat beállítása (ConnectionStrings:MySql).");

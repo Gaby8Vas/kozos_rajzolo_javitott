@@ -34,6 +34,8 @@ public sealed class DrawingHub(
 
     // Az előzmények ekkora adagokban töltődnek be csatlakozáskor.
     public const int HistoryPageSize = 300;
+    // A hubhoz érkező üzenetek felső mérete: az 5000 pontos vonal teljes pontosságú koordinátákkal is belefér.
+    public const long MaxMessageBytes = 512 * 1024;
 
     public async Task<RoomSnapshot> CreateRoom(string? roomName)
     {

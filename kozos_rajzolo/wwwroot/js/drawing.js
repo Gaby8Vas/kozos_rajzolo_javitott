@@ -107,11 +107,14 @@
         state.connection.send('CancelLiveStroke', state.room, stroke.clientKey).catch(() => {});
     }
 
+    // Tizedképpontra kerekítünk: a rajzon nem látszik, de az üzenet mérete kb. a felére csökken.
+    const round = value => Math.round(value * 10) / 10;
+
     function coords(event) {
         const r = canvas.getBoundingClientRect();
         return {
-            x: Math.max(0, Math.min(WIDTH, (event.clientX - r.left) * WIDTH / r.width)),
-            y: Math.max(0, Math.min(HEIGHT, (event.clientY - r.top) * HEIGHT / r.height))
+            x: round(Math.max(0, Math.min(WIDTH, (event.clientX - r.left) * WIDTH / r.width))),
+            y: round(Math.max(0, Math.min(HEIGHT, (event.clientY - r.top) * HEIGHT / r.height)))
         };
     }
 

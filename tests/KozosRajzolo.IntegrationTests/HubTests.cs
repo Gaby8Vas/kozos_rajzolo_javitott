@@ -171,4 +171,25 @@ public sealed class HubTests
         var only = Assert.Single(guestRooms);
         Assert.Equal(("Második", "Viewer"), (only.Name, only.Role));
     }
+
+    [SkippableFact]
+    public async Task Hosszu_vonal_is_mentodik()
+    {
+        await using var app = TestApp.Create();
+        var owner = await app.CreateUserAsync("Tulaj");
+        await using var conn = await app.ConnectAsync(owner);
+        var room = await conn.InvokeAsync<DrawingHub.RoomSnapshot>("CreateRoom", "Hosszú vonal");
+
+        // 5000 pont teljes pontosságú koordinátákkal: jóval több a SignalR alapértelmezett 32 KB-jánál.
+        var points = Enumerable.Range(0, 5000)
+            .Select(i => new PointDto { X = 1 + i * 0.2799999999, Y = 1 + (i % 97) * 8.7654321 })
+            .ToList();
+        var saved = await conn.InvokeAsync<StrokeDto>("SendStroke", room.RoomCode,
+            new StrokeDto { Color = "#3498db", Width = 4, Points = points });
+        Assert.True(saved.Id > 0);
+        Assert.Equal(5000, saved.Points.Count);
+
+        var rejoin = await conn.InvokeAsync<DrawingHub.RoomSnapshot>("JoinRoom", room.RoomCode);
+        Assert.Equal(5000, Assert.Single(rejoin.Strokes).Points.Count);
+    }
 }
