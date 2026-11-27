@@ -11,6 +11,13 @@
         <div class="account-actions"><span class="signed-in">@CurrentUser</span><a class="logout-button" href="/Identity/Account/Logout">Kijelentkezés</a><div class="connection"><span class="dot"></span><span id="connectionLabel">Nincs csatlakozva</span></div></div>
     </header>
 
+    @if (ScriptError)
+    {
+        <div class="script-error" role="alert">
+            A rajzoló szkript nem töltődött be megfelelően (valószínűleg egy régi, gyorsítótárazott változat).
+            Frissítsd az oldalt a gyorsítótár megkerülésével: <strong>Ctrl+F5</strong> (Macen Cmd+Shift+R).
+        </div>
+    }
     <section class="join-panel">
         <label>Bejelentkezett felhasználó<input id="userName" readonly value="@CurrentUser" /><input id="currentUserId" type="hidden" value="@CurrentUserId" /></label>
         <label>Rajzszoba kódja<input id="roomCode" maxlength="32" placeholder="Pl. ABC123" /></label>
@@ -75,6 +82,7 @@
     private static readonly string[] Colors = ["#222222", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#ffffff"];
     private string CurrentUser = "Felhasználó";
     private string CurrentUserId = string.Empty;
+    private bool ScriptError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,7 +94,17 @@
     // A vászon csak az interaktív renderelés után végleges, ezért itt kötjük rá a rajzoló JS-t.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await JS.InvokeVoidAsync("sharedDrawing.init");
+        if (!firstRender) return;
+        try
+        {
+            await JS.InvokeVoidAsync("sharedDrawing.init");
+        }
+        catch (JSException)
+        {
+            // Pl. egy régebbi, gyorsítótárazott drawing.js maradt a böngészőben.
+            ScriptError = true;
+            StateHasChanged();
+        }
     }
 
     private async Task Join() => await JS.InvokeVoidAsync("sharedDrawing.join");
