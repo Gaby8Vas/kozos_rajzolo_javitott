@@ -1,0 +1,19 @@
+@page
+@model KozosRajzolo.Areas.Identity.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Bejelentkezés";
+}
+<!DOCTYPE html>
+<html lang="hu"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Bejelentkezés · Közös Rajzoló</title><link rel="stylesheet" href="/css/site.css" /></head>
+<body class="account-body"><main class="account-card">
+    <a class="account-brand" href="/">✎ Közös Rajzoló</a><h1>Bejelentkezés</h1><p class="account-subtitle">Lépj be, és folytasd a közös alkotást.</p>
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+    <form method="post">
+        <input type="hidden" asp-for="ReturnUrl" />
+        <label asp-for="Input.Email">E-mail-cím</label><input asp-for="Input.Email" autocomplete="username"/><span asp-validation-for="Input.Email" class="validation"></span>
+        <label asp-for="Input.Password">Jelszó</label><input asp-for="Input.Password" autocomplete="current-password"/><span asp-validation-for="Input.Password" class="validation"></span>
+        <label class="remember-row"><input asp-for="Input.RememberMe"/> Bejelentkezve maradok</label>
+        <button class="primary account-submit" type="submit">Bejelentkezés</button>
+    </form>
+    <p class="account-switch">Még nincs fiókod? <a href="/Identity/Account/Register">Regisztráció</a></p>
+</main></body></html>

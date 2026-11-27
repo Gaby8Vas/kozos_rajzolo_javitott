@@ -1,0 +1,89 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+<PageTitle>Közös Rajzoló</PageTitle>
+
+<div class="app-shell">
+    <header class="topbar">
+        <div><div class="brand-mark">✎</div><div><h1>Közös Rajzoló</h1><p>Valós idejű online rajzszoba</p></div></div>
+        <div class="account-actions"><span class="signed-in">@CurrentUser</span><a class="logout-button" href="/Identity/Account/Logout">Kijelentkezés</a><div class="connection"><span class="dot"></span><span id="connectionLabel">Nincs csatlakozva</span></div></div>
+    </header>
+
+    <section class="join-panel">
+        <label>Bejelentkezett felhasználó<input id="userName" readonly value="@CurrentUser" /><input id="currentUserId" type="hidden" value="@CurrentUserId" /></label>
+        <label>Rajzszoba kódja<input id="roomCode" maxlength="32" placeholder="Pl. ABC123" /></label>
+        <label>Új szoba neve<input id="roomName" maxlength="100" value="Saját rajzszobám" /></label>
+        <button class="primary" @onclick="Join">Csatlakozás kóddal</button>
+        <button class="secondary" @onclick="NewRoom">Új rajzszoba létrehozása</button>
+        <span id="statusMessage">Hozz létre egy szobát, vagy csatlakozz egy meglévőhöz.</span>
+    </section>
+
+    <main class="workspace">
+        <aside class="toolbar">
+            <div class="tool-group">
+                <span class="group-title">ESZKÖZÖK</span>
+                <button class="tool active" id="penTool" @onclick='() => SetTool("pen")'>✎ <span>Ceruza</span></button>
+                <button class="tool" id="eraserTool" @onclick='() => SetTool("eraser")'>▱ <span>Radír</span></button>
+            </div>
+            <div class="tool-group">
+                <span class="group-title">SZÍN</span>
+                <input class="color-input" id="colorPicker" type="color" value="#222222" aria-label="Színválasztó" />
+                <div class="swatches">
+                    @foreach (var color in Colors)
+                    {
+                        <button class="swatch" style="background:@color" title="@color" @onclick="() => SetColor(color)"></button>
+                    }
+                </div>
+            </div>
+            <div class="tool-group">
+                <span class="group-title">VONALVASTAGSÁG</span>
+                <input id="lineWidth" type="range" min="1" max="30" value="5" />
+                <div class="range-label"><span>Vékony</span><span>Vastag</span></div>
+            </div>
+            <div class="tool-group actions">
+                <span class="group-title">MŰVELETEK</span>
+                <button class="action" id="undoButton" @onclick="Undo">↶ <span>Visszavonás</span></button>
+                <button class="action" id="clearButton" @onclick="Clear">⌫ <span>Rajz törlése</span></button>
+                <button class="action" @onclick="Export">⇩ <span>PNG letöltése</span></button>
+            </div>
+            <div class="participants"><span class="group-title">RAJZSZOBA</span><strong id="roomLabel">Nincs kiválasztva</strong><small id="participantLabel">Csatlakozásra vár</small><small id="roleLabel">Jogosultság: –</small></div>
+            <div id="ownerControls" class="tool-group owner-controls" hidden>
+                <span class="group-title">TAGOK JOGOSULTSÁGAI</span>
+                <select id="participantSelect" aria-label="Résztvevő kiválasztása"><option value="">Tag kiválasztása</option></select>
+                <select id="participantRole" aria-label="Jogosultság"><option value="Editor">Szerkesztő</option><option value="Viewer">Megtekintő</option></select>
+                <button class="action" @onclick="SaveRole">Jogosultság mentése</button>
+                <small id="membersStatus"></small>
+            </div>
+        </aside>
+        <section class="canvas-area">
+            <div class="canvas-heading"><div><strong>Közös munkaterület</strong><small>Minden résztvevő rajza automatikusan megjelenik.</small></div><span class="live-pill">● LIVE</span></div>
+            <div class="canvas-wrap"><canvas id="drawingCanvas" width="1400" height="850"></canvas></div>
+            <div class="canvas-footer"><span>Egérrel vagy érintőképernyővel rajzolhatsz</span><span>Vászon: 1400 × 850</span></div>
+        </section>
+    </main>
+    <footer>Oktatási célú alkalmazás · ASP.NET Core Identity · Blazor · SignalR · MySQL · HTML5 Canvas</footer>
+</div>
+
+@code {
+    private static readonly string[] Colors = ["#222222", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#ffffff"];
+    private string CurrentUser = "Felhasználó";
+    private string CurrentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUser = state.User.Identity?.Name ?? "Felhasználó";
+        CurrentUserId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+    }
+
+    private async Task Join() => await JS.InvokeVoidAsync("sharedDrawing.join");
+    private async Task NewRoom() => await JS.InvokeVoidAsync("sharedDrawing.newRoom");
+    private async Task SetTool(string tool) => await JS.InvokeVoidAsync("sharedDrawing.setTool", tool);
+    private async Task SetColor(string color) => await JS.InvokeVoidAsync("sharedDrawing.setColor", color);
+    private async Task Undo() => await JS.InvokeVoidAsync("sharedDrawing.undo");
+    private async Task Clear() => await JS.InvokeVoidAsync("sharedDrawing.clear");
+    private async Task Export() => await JS.InvokeVoidAsync("sharedDrawing.exportPng");
+    private async Task SaveRole() => await JS.InvokeVoidAsync("sharedDrawing.saveRole");
+}

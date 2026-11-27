@@ -1,0 +1,21 @@
+
+<Router AppAssembly="@typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData">
+            <NotAuthorized>
+                <main class="account-card">
+                    <h1>Bejelentkezés szükséges</h1>
+                    <p>A rajzoló használatához jelentkezz be.</p>
+                    <a class="primary account-link" href="/Identity/Account/Login">
+                        Bejelentkezés
+                    </a>
+                </main>
+            </NotAuthorized>
+        </AuthorizeRouteView>
+    </Found>
+
+    <NotFound>
+        <h1>Az oldal nem található.</h1>
+        <a href="/">Vissza a főoldalra</a>
+    </NotFound>
+</Router>

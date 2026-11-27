@@ -1,0 +1,14 @@
+# .NET build kimenet
+bin/
+obj/
+*.user
+.vs/
+
+# macOS
+.DS_Store
+
+# Titkos beállítások: a valódi appsettings.json nem kerül a repóba.
+# Mintának lásd: kozos_rajzolo/appsettings.example.json
+kozos_rajzolo/appsettings.json
+kozos_rajzolo/appsettings.*.json
+!kozos_rajzolo/appsettings.example.json

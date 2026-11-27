@@ -1,0 +1,4 @@
+A SignalR hivatalos böngészős kliensét az install-signalr.ps1 tölti le ebbe a mappába.
+A fájl neve: signalr.min.js
+A telepítő egyszeri futtatása után helyi hálózat és internet nélkül is kiszolgálható a JS-fájl.
+A letöltéshez első alkalommal internetkapcsolat szükséges.

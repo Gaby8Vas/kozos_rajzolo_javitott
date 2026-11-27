@@ -1,0 +1,33 @@
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#202638;background:#f3f5f9;font-synthesis:none}*{box-sizing:border-box}body{margin:0}.app-shell{max-width:1500px;margin:auto;padding:24px 30px}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}.topbar>div:first-child{display:flex;align-items:center;gap:13px}.brand-mark{width:46px;height:46px;border-radius:14px;background:#5b65d8;color:white;display:grid;place-items:center;font-size:27px}.topbar h1{font-size:22px;margin:0}.topbar p{margin:3px 0 0;color:#7a8294;font-size:13px}.connection{font-size:13px;color:#687185;display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%;background:#f0a43b}.join-panel{display:flex;align-items:end;gap:12px;background:white;padding:15px 18px;border:1px solid #e7eaf1;border-radius:14px;margin-bottom:18px;box-shadow:0 4px 15px #26345a08;flex-wrap:wrap}.join-panel label{font-size:11px;color:#778095;font-weight:700;display:grid;gap:6px}.join-panel input{width:190px;padding:10px 12px;border:1px solid #dfe3ec;border-radius:8px;font-size:14px;color:#202638}.join-panel button{padding:10px 16px;border:0;border-radius:8px;font-weight:650;cursor:pointer}.primary{background:#5965d8;color:white}.secondary{background:#eef0fb;color:#4f59bf}.join-panel #statusMessage{font-size:12px;color:#778095;flex:1;min-width:180px;padding-bottom:9px}.workspace{display:grid;grid-template-columns:220px minmax(0,1fr);gap:17px}.toolbar,.canvas-area{background:white;border:1px solid #e7eaf1;border-radius:14px;box-shadow:0 4px 15px #26345a08}.toolbar{padding:18px;display:flex;flex-direction:column;gap:22px}.group-title{display:block;font-size:10px;letter-spacing:1px;font-weight:800;color:#9299aa;margin-bottom:10px}.tool,.action{width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;color:#626c80;display:flex;gap:10px;align-items:center;cursor:pointer;font-size:13px}.tool.active{background:#eef0ff;color:#505bd0;font-weight:700}.tool span,.action span{font-size:12px}.color-input{width:100%;height:38px;border:1px solid #e1e4ed;border-radius:8px;background:white;padding:3px;cursor:pointer}.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.swatch{height:25px;border:1px solid #d9dce5;border-radius:7px;cursor:pointer}.toolbar input[type=range]{width:100%;accent-color:#5b65d8}.range-label{display:flex;justify-content:space-between;color:#a0a6b4;font-size:10px}.action{padding:7px 3px}.action:hover,.tool:hover{background:#f4f5fa}.participants{border-top:1px solid #edf0f5;padding-top:16px;margin-top:auto}.participants strong{display:block;font-size:14px;letter-spacing:1px}.participants small{display:block;color:#9299aa;margin-top:5px}.canvas-area{padding:17px;min-width:0}.canvas-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.canvas-heading strong{font-size:14px;display:block}.canvas-heading small{display:block;color:#939aab;font-size:11px;margin-top:4px}.live-pill{font-size:10px;color:#239b70;background:#e9f8f1;padding:6px 9px;border-radius:20px;font-weight:800}.canvas-wrap{height:min(66vh,700px);min-height:400px;border:1px solid #e5e8ef;border-radius:9px;overflow:hidden;background-color:white;background-image:linear-gradient(#f1f2f6 1px,transparent 1px),linear-gradient(90deg,#f1f2f6 1px,transparent 1px);background-size:24px 24px}canvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}.canvas-footer{display:flex;justify-content:space-between;color:#a0a6b4;font-size:10px;padding:10px 2px 0}footer{text-align:center;color:#a1a7b5;font-size:11px;padding:20px 0 5px}@media(max-width:800px){.app-shell{padding:15px}.workspace{grid-template-columns:1fr}.toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.participants{margin-top:0}.canvas-wrap{height:55vh;min-height:320px}.join-panel input{width:150px}}@media(max-width:480px){.topbar{align-items:flex-start}.connection{font-size:11px}.toolbar{grid-template-columns:1fr 1fr}.join-panel label{flex:1}.join-panel label input{width:100%}.canvas-area{padding:10px}.canvas-wrap{min-height:280px}.canvas-footer{font-size:9px}}
+
+/* Fiók és hitelesítés */
+.account-body { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f3f5f8; color: #202633; font-family: Inter, system-ui, sans-serif; }
+.account-card { width: min(100%, 440px); padding: 34px; background: #fff; border: 1px solid #e3e7ed; border-radius: 18px; box-shadow: 0 16px 48px rgba(24, 39, 75, .09); }
+.account-brand { display: inline-block; margin-bottom: 24px; color: #3c5be8; font-weight: 800; text-decoration: none; }
+.account-card h1 { margin: 0 0 8px; font-size: 28px; }
+.account-subtitle { margin: 0 0 24px; color: #687386; }
+.account-card form:not([action]) { display: grid; gap: 9px; }
+.account-card label { margin-top: 8px; font-size: 13px; font-weight: 700; }
+.account-card input:not([type=checkbox]) { width: 100%; padding: 12px 13px; border: 1px solid #d8dee8; border-radius: 9px; font: inherit; }
+.account-card input:focus { outline: 2px solid #cbd5ff; border-color: #536df0; }
+.account-submit { width: 100%; margin-top: 16px; padding: 12px; }
+.account-switch { margin: 22px 0 0; color: #687386; font-size: 14px; text-align: center; }
+.account-switch a { color: #3c5be8; font-weight: 700; }
+.validation { color: #b42318; font-size: 13px; }
+.remember-row { display: flex; align-items: center; gap: 8px; }
+.account-link { display: inline-block; padding: 11px 16px; color: white; text-decoration: none; border-radius: 9px; }
+.account-actions { display: flex; align-items: center; gap: 12px; }
+.signed-in { color: #536071; font-size: 13px; }
+.logout-button { padding: 8px 12px; color: #455064; background: white; border: 1px solid #dce1e8; border-radius: 8px; cursor: pointer; }
+#clearButton:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 760px) { .account-actions { flex-wrap: wrap; justify-content: flex-end; } .signed-in { max-width: 130px; overflow-wrap: anywhere; } .account-card { padding: 25px; } }
+.owner-controls select { width: 100%; padding: 9px; border: 1px solid #dce1e8; border-radius: 8px; background: white; color: #273142; }
+.owner-controls[hidden] { display: none !important; }
+
+/* A vászon mindenkor megtartja a tényleges 1400:850 oldalarányát. */
+.canvas-wrap { aspect-ratio: 1400 / 850; height: auto; min-height: 0; overflow: hidden; background: #fff; }
+.canvas-wrap canvas { width: 100%; height: auto; display: block; }
+@media (max-width: 800px) { .canvas-wrap { height: auto; min-height: 0; } }
+.action:disabled { opacity: .45; cursor: not-allowed; }
+
+.logout-button { text-decoration: none; }
