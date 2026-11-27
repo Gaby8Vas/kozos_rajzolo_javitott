@@ -143,6 +143,10 @@ namespace KozosRajzolo.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -154,6 +158,8 @@ namespace KozosRajzolo.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RoomCode", "Id");
+
+                    b.HasIndex("RoomCode", "UserId");
 
                     b.ToTable("Strokes");
                 });

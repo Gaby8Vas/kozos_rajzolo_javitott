@@ -95,13 +95,12 @@ public sealed class DrawingHub(
             if (role is not ("Owner" or "Editor"))
                 throw new HubException("Ehhez a művelethez szerkesztői jogosultság kell.");
 
-            var userName = Context.User?.Identity?.Name ?? "Felhasználó";
-            userName = userName[..Math.Min(userName.Length, 60)];
             var color = SafeColor(stroke.Color);
             var entity = new DrawingStroke
             {
                 RoomCode = roomCode,
-                UserName = userName,
+                UserId = userId,
+                UserName = Context.User.DisplayName(),
                 Color = color,
                 Width = stroke.Width,
                 IsEraser = stroke.IsEraser,
@@ -138,10 +137,8 @@ public sealed class DrawingHub(
             if (role is not ("Owner" or "Editor"))
                 throw new HubException("A visszavonáshoz szerkesztői jogosultság kell.");
 
-            var userName = Context.User?.Identity?.Name ?? "";
-            userName = userName[..Math.Min(userName.Length, 60)];
             var previous = await db.Strokes
-                .Where(s => s.RoomCode == roomCode && s.UserName == userName)
+                .Where(s => s.RoomCode == roomCode && s.UserId == userId)
                 .OrderByDescending(s => s.Id).FirstOrDefaultAsync();
             if (previous is null) return false;
             db.Strokes.Remove(previous);
@@ -217,8 +214,7 @@ public sealed class DrawingHub(
         {
             try
             {
-                await Clients.OthersInGroup(room).SendAsync("UserLeft", room,
-                    Context.User?.Identity?.Name ?? "Felhasználó");
+                await Clients.OthersInGroup(room).SendAsync("UserLeft", room, Context.User.DisplayName());
             }
             catch (Exception ex)
             {
@@ -242,8 +238,7 @@ public sealed class DrawingHub(
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, previousRoom);
             await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
             Context.Items["room"] = roomCode;
-            await BroadcastSafeAsync("UserJoined", roomCode, roomCode,
-                Context.User?.Identity?.Name ?? "Felhasználó");
+            await BroadcastSafeAsync("UserJoined", roomCode, roomCode, Context.User.DisplayName());
             return new RoomSnapshot(roomCode, name, role, result);
         }
         finally { gate.Release(); }
@@ -264,7 +259,7 @@ public sealed class DrawingHub(
 
     private static StrokeDto ToDto(DrawingStroke s) => new()
     {
-        Id = s.Id, UserName = s.UserName, Color = s.Color,
+        Id = s.Id, UserId = s.UserId, UserName = s.UserName, Color = s.Color,
         Width = s.Width, IsEraser = s.IsEraser,
         Points = JsonSerializer.Deserialize<List<PointDto>>(s.PointsJson, JsonOptions) ?? new()
     };

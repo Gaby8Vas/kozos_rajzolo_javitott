@@ -18,10 +18,12 @@ public sealed class DrawingDbContext(DbContextOptions<DrawingDbContext> options)
         var stroke = modelBuilder.Entity<DrawingStroke>();
         stroke.HasKey(x => x.Id);
         stroke.Property(x => x.RoomCode).HasMaxLength(32).IsRequired();
+        stroke.Property(x => x.UserId).HasMaxLength(450);
         stroke.Property(x => x.UserName).HasMaxLength(60).IsRequired();
         stroke.Property(x => x.Color).HasMaxLength(20).IsRequired();
         stroke.Property(x => x.PointsJson).HasColumnType("longtext").IsRequired();
         stroke.HasIndex(x => new { x.RoomCode, x.Id });
+        stroke.HasIndex(x => new { x.RoomCode, x.UserId });
         stroke.HasOne<DrawingRoom>().WithMany().HasForeignKey(x => x.RoomCode).OnDelete(DeleteBehavior.Cascade);
 
         var room = modelBuilder.Entity<DrawingRoom>();

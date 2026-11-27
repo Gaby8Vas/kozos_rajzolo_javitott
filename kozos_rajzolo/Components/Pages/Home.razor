@@ -74,7 +74,7 @@
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        CurrentUser = state.User.Identity?.Name ?? "Felhasználó";
+        CurrentUser = state.User.DisplayName();
         CurrentUserId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
     }
 
