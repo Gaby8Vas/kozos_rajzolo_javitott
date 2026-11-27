@@ -28,6 +28,7 @@ public sealed class DrawingHub(
         RoomLocks.GetOrAdd(roomCode, static _ => new SemaphoreSlim(1, 1));
 
     public sealed record ParticipantInfo(string UserId, string DisplayName, string Role);
+    public sealed record MyRoomInfo(string RoomCode, string Name, string Role, DateTime LastActivityUtc);
     public sealed record RoomSnapshot(string RoomCode, string RoomName, string Role, List<StrokeDto> Strokes);
 
     public async Task<RoomSnapshot> CreateRoom(string? roomName)
@@ -198,6 +199,29 @@ public sealed class DrawingHub(
             await BroadcastSafeAsync("RoomCleared", roomCode, roomCode);
         }
         finally { gate.Release(); }
+    }
+
+    /// <summary>A bejelentkezett felhasználó szobái, a legutóbb aktívval kezdve.</summary>
+    public async Task<List<MyRoomInfo>> GetMyRooms()
+    {
+        var userId = CurrentUserId();
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var rooms = await (from participant in db.RoomParticipants
+                           join room in db.DrawingRooms on participant.RoomCode equals room.RoomCode
+                           where participant.UserId == userId
+                           select new
+                           {
+                               room.RoomCode, room.Name, participant.Role, room.CreatedAtUtc,
+                               LastStroke = db.Strokes.Where(s => s.RoomCode == room.RoomCode)
+                                   .Max(s => (DateTime?)s.CreatedAt)
+                           })
+            .ToListAsync();
+        return rooms
+            .Select(r => new MyRoomInfo(r.RoomCode, r.Name, r.Role,
+                r.LastStroke is { } last && last > r.CreatedAtUtc ? last : r.CreatedAtUtc))
+            .OrderByDescending(r => r.LastActivityUtc)
+            .Take(50)
+            .ToList();
     }
 
     public async Task<List<ParticipantInfo>> GetParticipants(string roomCode)

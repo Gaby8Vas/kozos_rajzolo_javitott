@@ -11,11 +11,12 @@ function page(userId, userName) {
     const ids = ['statusMessage', 'connectionLabel', 'roleLabel', 'clearButton', 'undoButton',
         'ownerControls', 'participantLabel', 'roomCode', 'roomName', 'roomLabel',
         'currentUserId', 'userName', 'participantSelect', 'participantRole', 'membersStatus',
-        'penTool', 'eraserTool', 'colorPicker', 'lineWidth'];
+        'penTool', 'eraserTool', 'colorPicker', 'lineWidth', 'myRooms'];
     for (const id of ids) elements.set(id, {
         id, textContent: '', value: '', hidden: false, disabled: false, innerHTML: '',
         classList: { toggle() {} }, addEventListener() {}, children: [],
-        replaceChildren(...x) { this.children = x; }, add(opt) { this.children.push(opt); }
+        replaceChildren(...x) { this.children = x; }, add(opt) { this.children.push(opt); },
+        append(...x) { this.children.push(...x); }
     });
     elements.get('roomName').value = 'Teszt szoba';
     elements.get('userName').value = userName;
@@ -64,6 +65,8 @@ function page(userId, userName) {
                     for (const c of hub.connections) if (c !== this) c.fire('ReceiveStroke', args[0], item);
                     return item;
                 }
+                case 'GetMyRooms': return hub.role.has(userId)
+                    ? [{ roomCode: 'ABCD2345', name: 'Teszt szoba', role: hub.role.get(userId) }] : [];
                 case 'GetParticipants': return hub.users.map(u => ({userId:u.userId,displayName:u.userName,role:hub.role.get(u.userId)}));
                 case 'SetParticipantRole': {
                     hub.role.set(args[1], args[2]);
@@ -104,7 +107,8 @@ function page(userId, userName) {
         addEventListener() {}, createElement: tag => tag === 'canvas'
             ? { getContext: () => ({ fillRect() {}, drawImage() { pageInfo.exported = true; } }),
                 toDataURL: () => 'data:image/png;base64,BBB' }
-            : { click() { pageInfo.downloaded = this.href; } } };
+            : { tag, children: [], className: '', textContent: '', addEventListener() {},
+                append(...x) { this.children.push(...x); }, click() { pageInfo.downloaded = this.href; } } };
     const context = {
         document, signalR, console,
         Option: class { constructor(text, value) { this.textContent = text; this.value = value; } },
@@ -134,6 +138,9 @@ async function draw(p, x) {
     viewer.elements.get('roomCode').value='ABCD2345';
     await viewer.api.join();
     assert.equal(hub.role.get('u2'),'Viewer');
+    await viewer.api.refreshRooms();
+    const chips = viewer.elements.get('myRooms').children.filter(c => c.className?.startsWith('room-chip'));
+    assert.equal(chips.length, 1, 'A saját szobák listájában megjelenik a szoba.');
     // Élő előnézet: rajzolás közben a többiek már látják a vonalat.
     owner.canvas.events.pointerdown({pointerId:1, clientX:40, clientY:30, preventDefault() {}});
     owner.canvas.events.pointermove({pointerId:1, clientX:70, clientY:50});
@@ -164,5 +171,5 @@ async function draw(p, x) {
     await viewer.api.undo();
     await owner.api.clear();
     assert.equal(hub.strokes.length,0);
-    console.log('JS smoke tests: 14 ellenőrzés sikeres (böngésző és szerver szimulált).');
+    console.log('JS smoke tests: 15 ellenőrzés sikeres (böngésző és szerver szimulált).');
 })().catch(e => { console.error(e); process.exitCode=1; });

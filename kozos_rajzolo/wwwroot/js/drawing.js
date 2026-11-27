@@ -222,6 +222,7 @@
         showStatus('Csatlakozva: ' + snapshot.roomName + ' (' + snapshot.roomCode + ')', true);
         updateParticipantLabel();
         if (state.role === 'Owner') void loadParticipants();
+        void loadMyRooms();
     }
 
     async function beginJoin(method, argument, requestedRoom) {
@@ -299,6 +300,40 @@
         await connection.start();
         updateParticipantLabel();
         return connection;
+    }
+
+    const ROLE_LABELS = { Owner: 'tulajdonos', Editor: 'szerkesztő', Viewer: 'megtekintő' };
+
+    async function loadMyRooms() {
+        const list = $('myRooms');
+        if (!list || !connected()) return;
+        try {
+            const rooms = await state.connection.invoke('GetMyRooms');
+            list.replaceChildren();
+            if (!rooms.length) {
+                const empty = document.createElement('small');
+                empty.textContent = 'Még nincs szobád. Hozz létre egyet, vagy csatlakozz kóddal.';
+                list.append(empty);
+                return;
+            }
+            for (const room of rooms) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'room-chip' + (room.roomCode === state.room ? ' current' : '');
+                const title = document.createElement('span');
+                title.textContent = room.name;
+                const meta = document.createElement('small');
+                meta.textContent = room.roomCode + ' · ' + (ROLE_LABELS[room.role] || room.role);
+                button.append(title, meta);
+                button.addEventListener('click', () => {
+                    $('roomCode').value = room.roomCode;
+                    void window.sharedDrawing.join();
+                });
+                list.append(button);
+            }
+        } catch (error) {
+            list.textContent = 'A szobák listája nem tölthető be: ' + error.message;
+        }
     }
 
     async function loadParticipants() {
@@ -459,6 +494,7 @@
         // Csak teszteléshez: az élő előnézetek száma.
         _liveCount() { return state.live.size; },
         _strokeCount() { return state.strokes.length; },
+        refreshRooms() { return loadMyRooms(); },
         exportPng() {
             if (!canvas) return;
             // A letöltött képnek fehér háttere legyen, ne átlátszó.
@@ -485,6 +521,10 @@
         redraw();
         showRole('Viewer');
         canvas.addEventListener('pointerdown', start);
+        // A saját szobák listájához rögtön kapcsolódunk a szerverhez.
+        ensureConnection()
+            .then(() => loadMyRooms())
+            .catch(error => showStatus('Nincs szerverkapcsolat: ' + error.message, false));
         canvas.addEventListener('pointermove', move);
         canvas.addEventListener('pointerup', finish);
         canvas.addEventListener('pointercancel', () => {
