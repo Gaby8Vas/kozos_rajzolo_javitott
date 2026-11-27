@@ -546,6 +546,12 @@
             redraw();
         });
         $('colorPicker').addEventListener('input', event => state.color = event.target.value);
+        // Az eszköz- és színválasztás közvetlenül a böngészőben történik (szerver-oda-vissza
+        // nélkül), így a rögtön utána kezdett vonal már a kiválasztott eszközzel készül.
+        $('penTool').addEventListener('click', () => window.sharedDrawing.setTool('pen'));
+        $('eraserTool').addEventListener('click', () => window.sharedDrawing.setTool('eraser'));
+        for (const swatch of document.querySelectorAll?.('.swatch[data-color]') ?? [])
+            swatch.addEventListener('click', () => window.sharedDrawing.setColor(swatch.dataset.color));
         if (!keyboardBound) {
             keyboardBound = true;
             // Ctrl+Z: visszavonás, Ctrl+Y vagy Ctrl+Shift+Z: újra (szövegmezőben nem).

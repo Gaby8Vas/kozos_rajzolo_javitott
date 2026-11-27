@@ -35,8 +35,8 @@
         <aside class="toolbar">
             <div class="tool-group">
                 <span class="group-title">ESZKÖZÖK</span>
-                <button class="tool active" id="penTool" @onclick='() => SetTool("pen")'>✎ <span>Ceruza</span></button>
-                <button class="tool" id="eraserTool" @onclick='() => SetTool("eraser")'>▱ <span>Radír</span></button>
+                <button class="tool active" id="penTool" type="button">✎ <span>Ceruza</span></button>
+                <button class="tool" id="eraserTool" type="button">▱ <span>Radír</span></button>
             </div>
             <div class="tool-group">
                 <span class="group-title">SZÍN</span>
@@ -44,7 +44,7 @@
                 <div class="swatches">
                     @foreach (var color in Colors)
                     {
-                        <button class="swatch" style="background:@color" title="@color" @onclick="() => SetColor(color)"></button>
+                        <button class="swatch" type="button" style="background:@color" title="@color" data-color="@color"></button>
                     }
                 </div>
             </div>
@@ -109,8 +109,6 @@
 
     private async Task Join() => await JS.InvokeVoidAsync("sharedDrawing.join");
     private async Task NewRoom() => await JS.InvokeVoidAsync("sharedDrawing.newRoom");
-    private async Task SetTool(string tool) => await JS.InvokeVoidAsync("sharedDrawing.setTool", tool);
-    private async Task SetColor(string color) => await JS.InvokeVoidAsync("sharedDrawing.setColor", color);
     private async Task Undo() => await JS.InvokeVoidAsync("sharedDrawing.undo");
     private async Task Redo() => await JS.InvokeVoidAsync("sharedDrawing.redo");
     private async Task Clear() => await JS.InvokeVoidAsync("sharedDrawing.clear");
