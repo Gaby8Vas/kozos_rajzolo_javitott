@@ -362,6 +362,7 @@
                 await loadParticipants();
             } catch (error) { $('membersStatus').textContent = error.message; }
         },
+        init() { initialize(); },
         exportPng() {
             if (!canvas) return;
             const link = document.createElement('a');
@@ -372,8 +373,10 @@
     };
 
     function initialize() {
-        canvas = $('drawingCanvas');
-        if (!canvas) return;
+        const element = $('drawingCanvas');
+        // Ugyanarra a vászonra nem kötünk rá kétszer; új (újrarenderelt) vászonra igen.
+        if (!element || element === canvas) return;
+        canvas = element;
         ctx = canvas.getContext('2d');
         redraw();
         showRole('Viewer');

@@ -1,6 +1,6 @@
 @page "/"
 @attribute [Authorize]
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthenticationStateProvider
 <PageTitle>Közös Rajzoló</PageTitle>
@@ -76,6 +76,12 @@
         var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         CurrentUser = state.User.Identity?.Name ?? "Felhasználó";
         CurrentUserId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+    }
+
+    // A vászon csak az interaktív renderelés után végleges, ezért itt kötjük rá a rajzoló JS-t.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("sharedDrawing.init");
     }
 
     private async Task Join() => await JS.InvokeVoidAsync("sharedDrawing.join");
