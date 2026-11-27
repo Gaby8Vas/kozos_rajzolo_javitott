@@ -22,7 +22,7 @@ function page(userId, userName) {
     elements.get('currentUserId').value = userId;
     elements.get('participantRole').value = 'Editor';
     const canvas = { id: 'drawingCanvas', events: {}, width: 1400, height: 850,
-        getContext() { return { save() {}, restore() {}, fillRect() {}, beginPath() {},
+        getContext() { return { save() {}, restore() {}, fillRect() {}, clearRect() {}, beginPath() {},
             arc() {}, fill() {}, moveTo() {}, lineTo() {}, stroke() {} }; },
         addEventListener(name, fn) { this.events[name] = fn; },
         getBoundingClientRect() { return { left: 0, top: 0, width: 1400, height: 850 }; },
@@ -92,7 +92,10 @@ function page(userId, userName) {
             build() { const c = new FakeConnection(); pageInfo.connection = c; return c; }
         } };
     const document = { readyState: 'complete', getElementById: id => elements.get(id),
-        addEventListener() {}, createElement: () => ({click() {}}) };
+        addEventListener() {}, createElement: tag => tag === 'canvas'
+            ? { getContext: () => ({ fillRect() {}, drawImage() { pageInfo.exported = true; } }),
+                toDataURL: () => 'data:image/png;base64,BBB' }
+            : { click() { pageInfo.downloaded = this.href; } } };
     const context = {
         document, signalR, console,
         Option: class { constructor(text, value) { this.textContent = text; this.value = value; } },
@@ -134,6 +137,7 @@ async function draw(p, x) {
     assert.equal(hub.strokes[0].id,1);
     // Azonos fiók második kapcsolata is fogadja a rajzot.
     duplicateSession.api.exportPng();
+    assert.ok(duplicateSession.exported && duplicateSession.downloaded, 'A PNG-export fehér hátterű képet készít.');
     viewer.elements.get('participantRole').value='Editor';
     owner.elements.get('participantSelect').value='u2';
     await owner.api.saveRole();
@@ -147,5 +151,5 @@ async function draw(p, x) {
     assert.equal(hub.strokes.length,1,'A visszavonás szerveroldalon is hatásos.');
     await owner.api.clear();
     assert.equal(hub.strokes.length,0);
-    console.log('JS smoke tests: 11 ellenőrzés sikeres (böngésző és szerver szimulált).');
+    console.log('JS smoke tests: 12 ellenőrzés sikeres (böngésző és szerver szimulált).');
 })().catch(e => { console.error(e); process.exitCode=1; });

@@ -44,7 +44,9 @@
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = stroke.isEraser ? '#ffffff' : stroke.color;
+        // A radír valóban törli a képpontokat (átlátszóvá teszi), nem fehérrel takar.
+        ctx.globalCompositeOperation = stroke.isEraser ? 'destination-out' : 'source-over';
+        ctx.strokeStyle = stroke.isEraser ? '#000000' : stroke.color;
         ctx.lineWidth = stroke.width;
         if (stroke.points.length === 1) {
             const p = stroke.points[0];
@@ -64,9 +66,8 @@
 
     function redraw() {
         if (!ctx) return;
-        // A radír fehér háttéren fehér vonallal takar.
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        // Átlátszó vászon: a háttér (rács) a CSS-ből jön, a radír így ténylegesen töröl.
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
         for (const stroke of state.strokes) drawStroke(stroke);
         for (const stroke of state.pending.values()) drawStroke(stroke);
         const now = Date.now();
@@ -449,9 +450,17 @@
         _liveCount() { return state.live.size; },
         exportPng() {
             if (!canvas) return;
+            // A letöltött képnek fehér háttere legyen, ne átlátszó.
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = WIDTH;
+            exportCanvas.height = HEIGHT;
+            const exportCtx = exportCanvas.getContext('2d');
+            exportCtx.fillStyle = '#ffffff';
+            exportCtx.fillRect(0, 0, WIDTH, HEIGHT);
+            exportCtx.drawImage(canvas, 0, 0);
             const link = document.createElement('a');
             link.download = `rajz-${state.room || 'vaszon'}.png`;
-            link.href = canvas.toDataURL('image/png');
+            link.href = exportCanvas.toDataURL('image/png');
             link.click();
         }
     };
