@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+// „dotnet run” Production módban is lássa a keretrendszer statikus fájljait (blazor.web.js).
+// Közzétett (publish / Docker) alkalmazásnál ez nem csinál semmit.
+builder.WebHost.UseStaticWebAssets();
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
@@ -49,7 +52,6 @@ if (!app.Environment.IsDevelopment())
 }
 // A helyi HTTP-tesztben nincs HTTPS-átirányítás.
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -64,6 +66,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapGet("/Error", () => Results.Problem("Váratlan szerverhiba történt.")).ExcludeFromDescription();
+// A wwwroot fájljai és a keretrendszer szkriptjei (pl. _framework/blazor.web.js)
+// így minden környezetben elérhetők, nem csak Development módban.
+app.MapStaticAssets();
 app.MapRazorPages();
 app.MapHub<DrawingHub>("/drawingHub").RequireAuthorization();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
