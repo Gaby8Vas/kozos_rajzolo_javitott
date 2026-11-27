@@ -288,7 +288,7 @@ public sealed class DrawingHub(
 
         var outgoing = new LiveStrokeDto
         {
-            ClientKey = LiveKey(live.ClientKey),
+            ClientKey = LiveKey(live.ClientKey)!,
             Color = SafeColor(live.Color), Width = live.Width, IsEraser = live.IsEraser,
             Reset = live.Reset, Points = live.Points
         };
