@@ -21,6 +21,9 @@ public sealed class DrawingHub(
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> RoomLocks = new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    // Szobánkénti szerepkör-gyorsítótár az élő (nem mentett) vonalrészletekhez,
+    // hogy ne kelljen minden pár pontnál adatbázist olvasni.
+    private static readonly ConcurrentDictionary<(string Room, string User), string> RoleCache = new();
     private static SemaphoreSlim Gate(string roomCode) =>
         RoomLocks.GetOrAdd(roomCode, static _ => new SemaphoreSlim(1, 1));
 
@@ -79,11 +82,7 @@ public sealed class DrawingHub(
         roomCode = EnsureCurrentRoom(roomCode);
         if (stroke is null || stroke.Points is null || stroke.Points.Count is < 1 or > 5000)
             throw new HubException("Érvénytelen vagy túl hosszú vonal.");
-        if (!double.IsFinite(stroke.Width) || stroke.Width < 1 || stroke.Width > 40)
-            throw new HubException("A vonalvastagság kívül esik a megengedett tartományon.");
-        if (stroke.Points.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y)
-                                   || p.X < -50 || p.X > 1450 || p.Y < -50 || p.Y > 900))
-            throw new HubException("Érvénytelen rajzolási koordináták.");
+        ValidateGeometry(stroke.Width, stroke.Points);
 
         var gate = Gate(roomCode);
         await gate.WaitAsync();
@@ -110,6 +109,8 @@ public sealed class DrawingHub(
             await db.SaveChangesAsync();
             // A küldő visszatérési értéket, a többi kapcsolat eseményt kap.
             var saved = ToDto(entity);
+            // Az élő előnézetet a többiek ez alapján cserélik a mentett vonalra.
+            saved.LiveKey = LiveKey(stroke.ClientKey);
             try
             {
                 await Clients.OthersInGroup(roomCode).SendAsync("ReceiveStroke", roomCode, saved);
@@ -203,9 +204,45 @@ public sealed class DrawingHub(
                 throw new HubException("Érvénytelen célfelhasználó.");
             participant.Role = role;
             await db.SaveChangesAsync();
+            RoleCache[(roomCode, targetUserId)] = role;
             await BroadcastSafeAsync("ParticipantRoleChanged", roomCode, roomCode, targetUserId, role);
         }
         finally { gate.Release(); }
+    }
+
+    /// <summary>
+    /// Rajzolás közben küldött vonalrészlet. Nem kerül adatbázisba, csak a szoba
+    /// többi résztvevője látja előnézetként, amíg a kész vonal meg nem érkezik.
+    /// </summary>
+    public async Task StreamStroke(string roomCode, LiveStrokeDto? live)
+    {
+        roomCode = CleanRoom(roomCode);
+        if (Context.Items["room"] is not string joined || joined != roomCode) return;
+        if (live is null || live.Points is null || live.Points.Count is < 1 or > 1000) return;
+        if (string.IsNullOrEmpty(live.ClientKey) || live.ClientKey.Length > 40) return;
+        try { ValidateGeometry(live.Width, live.Points); }
+        catch (HubException) { return; }
+        if (!RoleCache.TryGetValue((roomCode, CurrentUserId()), out var role) || role is not ("Owner" or "Editor"))
+            return;
+
+        var outgoing = new LiveStrokeDto
+        {
+            ClientKey = LiveKey(live.ClientKey),
+            Color = SafeColor(live.Color), Width = live.Width, IsEraser = live.IsEraser,
+            Reset = live.Reset, Points = live.Points
+        };
+        try { await Clients.OthersInGroup(roomCode).SendAsync("LiveStroke", roomCode, outgoing); }
+        catch (Exception ex) { logger.LogDebug(ex, "Élő vonalrészlet küldése sikertelen."); }
+    }
+
+    /// <summary>A félbehagyott (meg nem mentett) élő vonal eltávolítása a többieknél.</summary>
+    public async Task CancelLiveStroke(string roomCode, string? clientKey)
+    {
+        roomCode = CleanRoom(roomCode);
+        if (Context.Items["room"] is not string joined || joined != roomCode) return;
+        if (string.IsNullOrEmpty(clientKey) || clientKey.Length > 40) return;
+        try { await Clients.OthersInGroup(roomCode).SendAsync("LiveStrokeCancelled", roomCode, LiveKey(clientKey)); }
+        catch (Exception ex) { logger.LogDebug(ex, "Élő vonal visszavonása sikertelen."); }
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -214,6 +251,7 @@ public sealed class DrawingHub(
         {
             try
             {
+                await Clients.OthersInGroup(room).SendAsync("LiveConnectionGone", room, Context.ConnectionId + ":");
                 await Clients.OthersInGroup(room).SendAsync("UserLeft", room, Context.User.DisplayName());
             }
             catch (Exception ex)
@@ -238,6 +276,8 @@ public sealed class DrawingHub(
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, previousRoom);
             await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
             Context.Items["room"] = roomCode;
+            var userId = CurrentUserId();
+            RoleCache[(roomCode, userId)] = role;
             await BroadcastSafeAsync("UserJoined", roomCode, roomCode, Context.User.DisplayName());
             return new RoomSnapshot(roomCode, name, role, result);
         }
@@ -292,6 +332,18 @@ public sealed class DrawingHub(
                                          (c >= 'a' && c <= 'z') ||
                                          (c >= '0' && c <= '9'))
             .Take(32).ToArray()).ToUpperInvariant();
+
+    private string? LiveKey(string? clientKey) =>
+        string.IsNullOrEmpty(clientKey) || clientKey.Length > 40 ? null : Context.ConnectionId + ":" + clientKey;
+
+    private static void ValidateGeometry(double width, List<PointDto> points)
+    {
+        if (!double.IsFinite(width) || width < 1 || width > 40)
+            throw new HubException("A vonalvastagság kívül esik a megengedett tartományon.");
+        if (points.Any(p => p is null || !double.IsFinite(p.X) || !double.IsFinite(p.Y)
+                            || p.X < -50 || p.X > 1450 || p.Y < -50 || p.Y > 900))
+            throw new HubException("Érvénytelen rajzolási koordináták.");
+    }
 
     private static string SafeColor(string? value) =>
         value is not null && Regex.IsMatch(value, "^#[0-9a-fA-F]{6}$") ? value : "#222222";

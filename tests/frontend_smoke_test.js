@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const js = fs.readFileSync(path.join(__dirname, '../kozos_rajzolo/wwwroot/js/drawing.js'), 'utf8');
-const hub = { strokes: [], next: 1, users: [], role: new Map(), connections: [] };
+const hub = { strokes: [], next: 1, users: [], role: new Map(), connections: [], liveSent: 0 };
 
 function page(userId, userName) {
     const elements = new Map();
@@ -31,7 +31,7 @@ function page(userId, userName) {
     elements.set('drawingCanvas', canvas);
     const pageInfo = { userId, userName, elements, canvas };
     class FakeConnection {
-        constructor() { this.state = 'Disconnected'; this.handlers = new Map(); hub.connections.push(this); }
+        constructor() { this.state = 'Disconnected'; this.handlers = new Map(); this.id = 'conn' + hub.connections.length; hub.connections.push(this); }
         on(name, fn) { this.handlers.set(name, fn); }
         onreconnected(fn) { this.reconnected = fn; }
         onreconnecting(fn) { this.reconnecting = fn; }
@@ -39,6 +39,16 @@ function page(userId, userName) {
         async start() { this.state = 'Connected'; }
         async stop() { this.state = 'Disconnected'; }
         fire(name, ...args) { this.handlers.get(name)?.(...args); }
+        async send(method, ...args) {
+            const key = c => this.id + ':' + c;
+            if (method === 'StreamStroke') {
+                if (hub.role.get(userId) === 'Viewer') return;
+                hub.liveSent++;
+                for (const c of hub.connections) if (c !== this) c.fire('LiveStroke', args[0], {...args[1], clientKey: key(args[1].clientKey)});
+            } else if (method === 'CancelLiveStroke') {
+                for (const c of hub.connections) if (c !== this) c.fire('LiveStrokeCancelled', args[0], key(args[1]));
+            } else throw new Error('Unimplemented send: ' + method);
+        }
         async invoke(method, ...args) {
             switch(method) {
                 case 'CreateRoom': hub.users.push(pageInfo); hub.role.set(userId, 'Owner');
@@ -49,7 +59,7 @@ function page(userId, userName) {
                 case 'SendStroke': {
                     if (pageInfo.failNext) { pageInfo.failNext = false; throw new Error('próba mentési hiba'); }
                     if (hub.role.get(userId) === 'Viewer') throw new Error('megtekintő');
-                    const item = {...args[1], id: hub.next++, userName};
+                    const item = {...args[1], id: hub.next++, userName, liveKey: this.id + ':' + args[1].clientKey};
                     hub.strokes.push(item);
                     for (const c of hub.connections) if (c !== this) c.fire('ReceiveStroke', args[0], item);
                     return item;
@@ -112,7 +122,14 @@ async function draw(p, x) {
     viewer.elements.get('roomCode').value='ABCD2345';
     await viewer.api.join();
     assert.equal(hub.role.get('u2'),'Viewer');
-    await draw(owner, 40);
+    // Élő előnézet: rajzolás közben a többiek már látják a vonalat.
+    owner.canvas.events.pointerdown({pointerId:1, clientX:40, clientY:30, preventDefault() {}});
+    owner.canvas.events.pointermove({pointerId:1, clientX:70, clientY:50});
+    await Promise.resolve();
+    assert.ok(hub.liveSent >= 1, 'Rajzolás közben élő részlet megy ki.');
+    assert.equal(viewer.api._liveCount(), 1, 'A megtekintő látja az élő vonalat.');
+    await owner.canvas.events.pointerup({pointerId:1});
+    assert.equal(viewer.api._liveCount(), 0, 'A mentett vonal felváltja az élő előnézetet.');
     assert.equal(hub.strokes.length,1);
     assert.equal(hub.strokes[0].id,1);
     // Azonos fiók második kapcsolata is fogadja a rajzot.
@@ -130,5 +147,5 @@ async function draw(p, x) {
     assert.equal(hub.strokes.length,1,'A visszavonás szerveroldalon is hatásos.');
     await owner.api.clear();
     assert.equal(hub.strokes.length,0);
-    console.log('JS smoke tests: 8 ellenőrzés sikeres (böngésző és szerver szimulált).');
+    console.log('JS smoke tests: 11 ellenőrzés sikeres (böngésző és szerver szimulált).');
 })().catch(e => { console.error(e); process.exitCode=1; });

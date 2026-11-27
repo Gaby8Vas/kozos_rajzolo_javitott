@@ -4,10 +4,15 @@
     const WIDTH = 1400;
     const HEIGHT = 850;
     const MAX_POINTS = 4500;
+    // Ennyi ezredmásodpercenként küldjük el rajzolás közben az új pontokat.
+    const LIVE_INTERVAL_MS = 40;
+    // Ennyi idő után eltűnik az az élő előnézet, amelyhez nem jött frissítés.
+    const LIVE_TIMEOUT_MS = 15000;
     const state = {
         connection: null, room: '', role: 'Viewer', tool: 'pen', color: '#222222', width: 5,
         canDraw: false, drawing: false, current: null, pointerId: null,
         strokes: [], pending: new Map(), nextPendingId: 0,
+        live: new Map(), clientSeq: 0,
         joining: false, requestedRoom: '', eventBuffer: []
     };
     let canvas;
@@ -64,7 +69,39 @@
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
         for (const stroke of state.strokes) drawStroke(stroke);
         for (const stroke of state.pending.values()) drawStroke(stroke);
+        const now = Date.now();
+        for (const [key, stroke] of state.live) {
+            if (now - stroke.updated > LIVE_TIMEOUT_MS) state.live.delete(key);
+            else drawStroke(stroke);
+        }
         if (state.current) drawStroke(state.current);
+    }
+
+    // Rajzolás közben a még el nem küldött pontokat továbbítjuk a többieknek.
+    function streamCurrent(force = false) {
+        const stroke = state.current;
+        if (!stroke || !connected() || !state.canDraw || !state.room) return;
+        const now = Date.now();
+        if (!force && now - stroke.lastSent < LIVE_INTERVAL_MS) return;
+        const reset = stroke.needsReset === true;
+        const from = reset ? 0 : stroke.sentCount;
+        if (from >= stroke.points.length) return;
+        let points = stroke.points.slice(from);
+        if (points.length > 1000) {
+            points = points.slice(-1000);
+        }
+        stroke.lastSent = now;
+        stroke.sentCount = stroke.points.length;
+        stroke.needsReset = false;
+        state.connection.send('StreamStroke', state.room, {
+            clientKey: stroke.clientKey, color: stroke.color, width: stroke.width,
+            isEraser: stroke.isEraser, reset, points
+        }).catch(() => { /* Az előnézet elvesztése nem hiba. */ });
+    }
+
+    function cancelLive(stroke) {
+        if (!stroke?.sentCount || !connected() || !state.room) return;
+        state.connection.send('CancelLiveStroke', state.room, stroke.clientKey).catch(() => {});
     }
 
     function coords(event) {
@@ -77,6 +114,7 @@
 
     function mergeStroke(stroke) {
         if (!stroke || !Number.isSafeInteger(stroke.id) || stroke.id < 1) return;
+        if (stroke.liveKey) state.live.delete(stroke.liveKey);
         if (state.strokes.some(item => item.id === stroke.id)) return;
         state.strokes.push(stroke);
         state.strokes.sort((a, b) => a.id - b.id);
@@ -93,8 +131,35 @@
                 state.strokes = state.strokes.filter(s => s.id !== args[0]);
                 redraw();
                 break;
+            case 'live': {
+                const live = args[0];
+                if (!live?.clientKey || !Array.isArray(live.points)) break;
+                let entry = state.live.get(live.clientKey);
+                if (!entry) {
+                    entry = { points: [] };
+                    state.live.set(live.clientKey, entry);
+                }
+                entry.color = live.color;
+                entry.width = live.width;
+                entry.isEraser = live.isEraser;
+                entry.points = live.reset ? live.points.slice() : entry.points.concat(live.points);
+                entry.updated = Date.now();
+                redraw();
+                break;
+            }
+            case 'liveCancelled':
+                if (state.live.delete(args[0])) redraw();
+                break;
+            case 'liveGone': {
+                let changed = false;
+                for (const key of [...state.live.keys()])
+                    if (key.startsWith(args[0])) { state.live.delete(key); changed = true; }
+                if (changed) redraw();
+                break;
+            }
             case 'cleared':
                 state.strokes = [];
+                state.live.clear();
                 state.pending.clear();
                 state.current = null;
                 state.drawing = false;
@@ -140,6 +205,7 @@
             ? snapshot.strokes.filter(s => Number.isSafeInteger(s.id)).sort((a, b) => a.id - b.id)
             : [];
         state.pending.clear();
+        state.live.clear();
         state.current = null;
         state.drawing = false;
         showRole(snapshot.role || 'Viewer');
@@ -195,11 +261,15 @@
         connection.on('ParticipantRoleChanged', (room, userId, role) => receive('role', room, userId, role));
         connection.on('UserJoined', (room, name) => receive('joined', room, name));
         connection.on('UserLeft', (room, name) => receive('left', room, name));
+        connection.on('LiveStroke', (room, live) => receive('live', room, live));
+        connection.on('LiveStrokeCancelled', (room, key) => receive('liveCancelled', room, key));
+        connection.on('LiveConnectionGone', (room, prefix) => receive('liveGone', room, prefix));
         connection.onreconnecting(() => {
             state.canDraw = false;
             state.current = null;
             state.drawing = false;
             state.pending.clear();
+            state.live.clear();
             redraw();
             showStatus('Kapcsolatvesztés. Újracsatlakozás…', false);
             updateParticipantLabel();
@@ -217,6 +287,7 @@
             state.current = null;
             state.drawing = false;
             state.pending.clear();
+            state.live.clear();
             redraw();
             showStatus('A szerverkapcsolat megszakadt.', false);
             updateParticipantLabel();
@@ -265,7 +336,9 @@
             color: state.color,
             width: state.width,
             isEraser: state.tool === 'eraser',
-            points: [coords(event)]
+            points: [coords(event)],
+            clientKey: 'c' + (++state.clientSeq),
+            sentCount: 0, lastSent: 0, needsReset: false
         };
         redraw();
     }
@@ -278,7 +351,11 @@
         if ((p.x - last.x) ** 2 + (p.y - last.y) ** 2 < 1.5 * 1.5) return;
         points.push(p);
         // Túl sok pont esetén ritkítjuk a pontsort.
-        if (points.length > MAX_POINTS) state.current.points = points.filter((_, i) => i % 2 === 0);
+        if (points.length > MAX_POINTS) {
+            state.current.points = points.filter((_, i) => i % 2 === 0);
+            state.current.needsReset = true;
+        }
+        streamCurrent();
         redraw();
     }
 
@@ -291,6 +368,7 @@
         state.current = null;
         if (!stroke.points.length) { redraw(); return; }
         if (!connected() || !state.canDraw || !state.room) {
+            cancelLive(stroke);
             redraw();
             showStatus('A vonal nem menthető: nincs kapcsolat vagy jogosultság.');
             return;
@@ -300,12 +378,16 @@
         state.pending.set(key, stroke);
         redraw();
         try {
-            const saved = await state.connection.invoke('SendStroke', room, stroke);
+            const saved = await state.connection.invoke('SendStroke', room, {
+                color: stroke.color, width: stroke.width, isEraser: stroke.isEraser,
+                points: stroke.points, clientKey: stroke.clientKey
+            });
             state.pending.delete(key);
             if (state.room === room) mergeStroke(saved);
             redraw();
         } catch (error) {
             state.pending.delete(key);
+            cancelLive(stroke);
             redraw();
             showStatus('A szerver nem fogadta el a vonalat: ' + error.message);
         }
@@ -363,6 +445,8 @@
             } catch (error) { $('membersStatus').textContent = error.message; }
         },
         init() { initialize(); },
+        // Csak teszteléshez: az élő előnézetek száma.
+        _liveCount() { return state.live.size; },
         exportPng() {
             if (!canvas) return;
             const link = document.createElement('a');
@@ -384,6 +468,7 @@
         canvas.addEventListener('pointermove', move);
         canvas.addEventListener('pointerup', finish);
         canvas.addEventListener('pointercancel', () => {
+            cancelLive(state.current);
             state.drawing = false;
             state.current = null;
             state.pointerId = null;
