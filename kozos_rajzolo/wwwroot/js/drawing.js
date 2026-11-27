@@ -235,7 +235,17 @@
         state.drawing = false;
         try {
             const snapshot = await state.connection.invoke(method, argument);
-            applySnapshot(snapshot);
+            // A nagy rajzok előzményei adagokban jönnek; közben az események pufferben várnak.
+            const strokes = Array.isArray(snapshot.strokes) ? snapshot.strokes.slice() : [];
+            let hasMore = snapshot.hasMore === true;
+            while (hasMore) {
+                showStatus('Rajz betöltése… (' + strokes.length + ' vonal)');
+                const lastId = strokes.length ? strokes[strokes.length - 1].id : 0;
+                const page = await state.connection.invoke('GetStrokePage', snapshot.roomCode, lastId);
+                strokes.push(...(page.strokes || []));
+                hasMore = page.hasMore === true && (page.strokes || []).length > 0;
+            }
+            applySnapshot({ ...snapshot, strokes });
         } catch (error) {
             state.joining = false;
             state.requestedRoom = '';

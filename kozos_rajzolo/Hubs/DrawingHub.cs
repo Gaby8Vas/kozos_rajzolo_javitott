@@ -29,7 +29,11 @@ public sealed class DrawingHub(
 
     public sealed record ParticipantInfo(string UserId, string DisplayName, string Role);
     public sealed record MyRoomInfo(string RoomCode, string Name, string Role, DateTime LastActivityUtc);
-    public sealed record RoomSnapshot(string RoomCode, string RoomName, string Role, List<StrokeDto> Strokes);
+    public sealed record RoomSnapshot(string RoomCode, string RoomName, string Role, List<StrokeDto> Strokes, bool HasMore);
+    public sealed record StrokePage(List<StrokeDto> Strokes, bool HasMore);
+
+    // Az előzmények ekkora adagokban töltődnek be csatlakozáskor.
+    public const int HistoryPageSize = 300;
 
     public async Task<RoomSnapshot> CreateRoom(string? roomName)
     {
@@ -326,9 +330,7 @@ public sealed class DrawingHub(
         try
         {
             await using var db = await dbFactory.CreateDbContextAsync();
-            var history = await db.Strokes.AsNoTracking()
-                .Where(s => s.RoomCode == roomCode && s.UndoneAtUtc == null).OrderBy(s => s.Id).ToListAsync();
-            var result = history.Select(ToDto).ToList();
+            var (result, hasMore) = await LoadPageAsync(db, roomCode, 0);
             if (Context.Items["room"] is string previousRoom && previousRoom != roomCode)
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, previousRoom);
             await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
@@ -336,9 +338,30 @@ public sealed class DrawingHub(
             var userId = CurrentUserId();
             RoleCache[(roomCode, userId)] = role;
             await BroadcastSafeAsync("UserJoined", roomCode, roomCode, Context.User.DisplayName());
-            return new RoomSnapshot(roomCode, name, role, result);
+            return new RoomSnapshot(roomCode, name, role, result, hasMore);
         }
         finally { gate.Release(); }
+    }
+
+    /// <summary>Az előzmények következő adagja az adott azonosító után.</summary>
+    public async Task<StrokePage> GetStrokePage(string roomCode, long afterId)
+    {
+        roomCode = EnsureCurrentRoom(roomCode);
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var (strokes, hasMore) = await LoadPageAsync(db, roomCode, afterId);
+        return new StrokePage(strokes, hasMore);
+    }
+
+    private static async Task<(List<StrokeDto> Strokes, bool HasMore)> LoadPageAsync(
+        DrawingDbContext db, string roomCode, long afterId)
+    {
+        var rows = await db.Strokes.AsNoTracking()
+            .Where(s => s.RoomCode == roomCode && s.UndoneAtUtc == null && s.Id > afterId)
+            .OrderBy(s => s.Id)
+            .Take(HistoryPageSize + 1)
+            .ToListAsync();
+        var hasMore = rows.Count > HistoryPageSize;
+        return (rows.Take(HistoryPageSize).Select(ToDto).ToList(), hasMore);
     }
 
     private async Task BroadcastSafeAsync(string eventName, string roomCode, params object[] args)
