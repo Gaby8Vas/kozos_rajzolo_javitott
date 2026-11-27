@@ -29,3 +29,14 @@ Szükség van a .NET 10 SDK-ra, egy futó MySQL-szerverre, valamint a `Connectio
 A radír fehér vonallal takar, a rajzot nem vektoros objektumonként törli. Általános redo nincs. A szobák lezárása és a vonalak rendezése egy alkalmazáspéldányon belül működik; több szerverpéldányhoz további koordináció szükséges. Az előzmények minden csatlakozáskor teljes egészükben betöltődnek.
 
 A csomag C#-fordítása és MySQL-lel végzett integrációs tesztje még nincs dokumentálva. Az első helyi indítás után a fordítási kimenetet és a funkcionális tesztek eredményeit külön kell rögzíteni.
+
+## Futtatás Dockerben (pl. Macen)
+
+A repó gyökerében:
+
+```bash
+cp .env.example .env   # írj bele saját teszt jelszavakat
+docker compose up -d --build
+```
+
+Az alkalmazás a http://localhost:5050 címen érhető el. A MySQL-adatbázis a `db` konténerben fut, a sémát első indításkor az `EnsureCreated` hozza létre. Leállítás: `docker compose down` (az adatokkal együtt: `docker compose down -v`).

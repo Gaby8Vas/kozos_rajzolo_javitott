@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.env
+# A valódi jelszót tartalmazó beállítás nem kerülhet a képbe.
+kozos_rajzolo/appsettings.json
+kozos_rajzolo/appsettings.*.json
+!kozos_rajzolo/appsettings.example.json

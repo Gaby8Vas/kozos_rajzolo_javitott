@@ -12,3 +12,6 @@ obj/
 kozos_rajzolo/appsettings.json
 kozos_rajzolo/appsettings.*.json
 !kozos_rajzolo/appsettings.example.json
+
+# Docker: helyi teszt jelszavak
+.env

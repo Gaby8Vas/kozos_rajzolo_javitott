@@ -1,0 +1,38 @@
+# Helyi kipróbálás: docker compose up --build  ->  http://localhost:5050
+# A jelszavak a .env fájlból jönnek (minta: .env.example).
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Állítsd be a .env fájlban}
+      MYSQL_DATABASE: kozos_rajzolo_auth
+      MYSQL_USER: ${MYSQL_USER:-rajzolo}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Állítsd be a .env fájlban}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__MySql: "server=db;port=3306;database=kozos_rajzolo_auth;user=${MYSQL_USER:-rajzolo};password=${MYSQL_PASSWORD};"
+    ports:
+      - "5050:8080"
+    volumes:
+      # A belépési sütik kulcsai így túlélik a konténer újraindítását.
+      - dp-keys:/root/.aspnet/DataProtection-Keys
+
+volumes:
+  mysql-data:
+  dp-keys:
