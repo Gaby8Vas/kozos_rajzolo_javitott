@@ -54,12 +54,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-// Az üres adatbázis tábláit első indításkor hozza létre.
+// Indításkor lefutnak az EF Core migrációk (a régi, EnsureCreated-del készült adatbázist is átveszi).
 using (var scope = app.Services.CreateScope())
 {
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DrawingDbContext>>();
     await using var db = await factory.CreateDbContextAsync();
-    await db.Database.EnsureCreatedAsync();
+    await DatabaseInitializer.MigrateAsync(db, app.Logger);
 }
 
 app.MapGet("/Error", () => Results.Problem("Váratlan szerverhiba történt.")).ExcludeFromDescription();
