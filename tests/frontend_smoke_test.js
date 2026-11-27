@@ -74,7 +74,16 @@ function page(userId, userName) {
                     const index = hub.strokes.findLastIndex(s => s.userName === userName);
                     if (index < 0) return false;
                     const [item] = hub.strokes.splice(index, 1);
+                    (hub.undone ??= []).push(item);
                     for (const c of hub.connections) c.fire('StrokeRemoved', args[0], item.id);
+                    return true;
+                }
+                case 'RedoLastStroke': {
+                    const index = (hub.undone ?? []).findLastIndex(s => s.userName === userName);
+                    if (index < 0) return false;
+                    const [item] = hub.undone.splice(index, 1);
+                    hub.strokes.push(item);
+                    for (const c of hub.connections) c.fire('ReceiveStroke', args[0], item);
                     return true;
                 }
                 case 'ClearRoom': {
@@ -149,7 +158,11 @@ async function draw(p, x) {
     assert.equal(hub.strokes.length,2,'Elutasított vonal nem kerülhet adatbázisba.');
     await viewer.api.undo();
     assert.equal(hub.strokes.length,1,'A visszavonás szerveroldalon is hatásos.');
+    await viewer.api.redo();
+    assert.equal(hub.strokes.length,2,'Az „Újra” visszahozza a visszavont vonalat.');
+    assert.equal(owner.api._strokeCount(),2,'A visszaállított vonal a többieknél is megjelenik.');
+    await viewer.api.undo();
     await owner.api.clear();
     assert.equal(hub.strokes.length,0);
-    console.log('JS smoke tests: 12 ellenőrzés sikeres (böngésző és szerver szimulált).');
+    console.log('JS smoke tests: 14 ellenőrzés sikeres (böngésző és szerver szimulált).');
 })().catch(e => { console.error(e); process.exitCode=1; });

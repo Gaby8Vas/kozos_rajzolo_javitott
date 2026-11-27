@@ -105,6 +105,10 @@ public sealed class DrawingHub(
                 IsEraser = stroke.IsEraser,
                 PointsJson = JsonSerializer.Serialize(stroke.Points, JsonOptions)
             };
+            // Új vonal után a korábban visszavont saját vonalak már nem állíthatók vissza.
+            await db.Strokes
+                .Where(s => s.RoomCode == roomCode && s.UserId == userId && s.UndoneAtUtc != null)
+                .ExecuteDeleteAsync();
             db.Strokes.Add(entity);
             await db.SaveChangesAsync();
             // A küldő visszatérési értéket, a többi kapcsolat eseményt kap.
@@ -139,12 +143,41 @@ public sealed class DrawingHub(
                 throw new HubException("A visszavonáshoz szerkesztői jogosultság kell.");
 
             var previous = await db.Strokes
-                .Where(s => s.RoomCode == roomCode && s.UserId == userId)
+                .Where(s => s.RoomCode == roomCode && s.UserId == userId && s.UndoneAtUtc == null)
                 .OrderByDescending(s => s.Id).FirstOrDefaultAsync();
             if (previous is null) return false;
-            db.Strokes.Remove(previous);
+            // A vonal nem törlődik, csak visszavontnak jelöljük, így az „Újra” visszahozhatja.
+            previous.UndoneAtUtc = DateTime.UtcNow;
             await db.SaveChangesAsync();
             await BroadcastSafeAsync("StrokeRemoved", roomCode, roomCode, previous.Id);
+            return true;
+        }
+        finally { gate.Release(); }
+    }
+
+    /// <summary>A legutóbb visszavont saját vonal visszaállítása (redo).</summary>
+    public async Task<bool> RedoLastStroke(string roomCode)
+    {
+        roomCode = EnsureCurrentRoom(roomCode);
+        var gate = Gate(roomCode);
+        await gate.WaitAsync();
+        try
+        {
+            var userId = CurrentUserId();
+            await using var db = await dbFactory.CreateDbContextAsync();
+            var role = await GetRoleAsync(db, roomCode, userId);
+            if (role is not ("Owner" or "Editor"))
+                throw new HubException("Az újra végrehajtáshoz szerkesztői jogosultság kell.");
+
+            var undone = await db.Strokes
+                .Where(s => s.RoomCode == roomCode && s.UserId == userId && s.UndoneAtUtc != null)
+                .OrderByDescending(s => s.UndoneAtUtc).ThenByDescending(s => s.Id)
+                .FirstOrDefaultAsync();
+            if (undone is null) return false;
+            undone.UndoneAtUtc = null;
+            await db.SaveChangesAsync();
+            // Az eredeti azonosítóval tér vissza, így a rajzolási sorrendben a helyére kerül.
+            await BroadcastSafeAsync("ReceiveStroke", roomCode, roomCode, ToDto(undone));
             return true;
         }
         finally { gate.Release(); }
@@ -270,7 +303,7 @@ public sealed class DrawingHub(
         {
             await using var db = await dbFactory.CreateDbContextAsync();
             var history = await db.Strokes.AsNoTracking()
-                .Where(s => s.RoomCode == roomCode).OrderBy(s => s.Id).ToListAsync();
+                .Where(s => s.RoomCode == roomCode && s.UndoneAtUtc == null).OrderBy(s => s.Id).ToListAsync();
             var result = history.Select(ToDto).ToList();
             if (Context.Items["room"] is string previousRoom && previousRoom != roomCode)
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, previousRoom);

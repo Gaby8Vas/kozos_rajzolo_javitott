@@ -143,6 +143,9 @@ namespace KozosRajzolo.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<DateTime?>("UndoneAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("UserId")
                         .HasMaxLength(450)
                         .HasColumnType("varchar(450)");

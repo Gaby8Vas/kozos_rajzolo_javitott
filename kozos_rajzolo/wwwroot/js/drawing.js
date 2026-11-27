@@ -17,6 +17,7 @@
     };
     let canvas;
     let ctx;
+    let keyboardBound = false;
 
     const $ = id => document.getElementById(id);
     const connected = () => typeof signalR !== 'undefined' &&
@@ -33,6 +34,7 @@
         $('roleLabel').textContent = 'Jogosultság: ' + role;
         $('clearButton').disabled = role !== 'Owner';
         $('undoButton').disabled = !state.canDraw;
+        if ($('redoButton')) $('redoButton').disabled = !state.canDraw;
         $('ownerControls').hidden = role !== 'Owner';
     };
     const updateParticipantLabel = () => {
@@ -428,6 +430,14 @@
                 showStatus(removed ? 'Az utolsó saját vonal visszavonva.' : 'Nincs saját visszavonható vonal.', true);
             } catch (error) { showStatus('A visszavonás nem sikerült: ' + error.message); }
         },
+        async redo() {
+            if (!connected() || !state.canDraw || !state.room) return;
+            if (state.pending.size > 0) { showStatus('Előbb fejeződjön be a rajz mentése.'); return; }
+            try {
+                const restored = await state.connection.invoke('RedoLastStroke', state.room);
+                showStatus(restored ? 'A visszavont vonal visszaállítva.' : 'Nincs visszaállítható vonal.', true);
+            } catch (error) { showStatus('Az újra végrehajtás nem sikerült: ' + error.message); }
+        },
         async clear() {
             if (!connected() || state.role !== 'Owner' || !state.room) return;
             if (!window.confirm('Biztosan törlöd a teljes közös rajzot?')) return;
@@ -448,6 +458,7 @@
         init() { initialize(); },
         // Csak teszteléshez: az élő előnézetek száma.
         _liveCount() { return state.live.size; },
+        _strokeCount() { return state.strokes.length; },
         exportPng() {
             if (!canvas) return;
             // A letöltött képnek fehér háttere legyen, ne átlátszó.
@@ -484,6 +495,18 @@
             redraw();
         });
         $('colorPicker').addEventListener('input', event => state.color = event.target.value);
+        if (!keyboardBound) {
+            keyboardBound = true;
+            // Ctrl+Z: visszavonás, Ctrl+Y vagy Ctrl+Shift+Z: újra (szövegmezőben nem).
+            document.addEventListener('keydown', event => {
+                if (!(event.ctrlKey || event.metaKey)) return;
+                const tag = event.target?.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+                const key = (event.key || '').toLowerCase();
+                if (key === 'z' && !event.shiftKey) { event.preventDefault(); void window.sharedDrawing.undo(); }
+                else if (key === 'y' || (key === 'z' && event.shiftKey)) { event.preventDefault(); void window.sharedDrawing.redo(); }
+            });
+        }
         $('lineWidth').addEventListener('input', event => state.width = Number(event.target.value));
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize);

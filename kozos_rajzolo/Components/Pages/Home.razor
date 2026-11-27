@@ -44,7 +44,8 @@
             </div>
             <div class="tool-group actions">
                 <span class="group-title">MŰVELETEK</span>
-                <button class="action" id="undoButton" @onclick="Undo">↶ <span>Visszavonás</span></button>
+                <button class="action" id="undoButton" @onclick="Undo" title="Ctrl+Z">↶ <span>Visszavonás</span></button>
+                <button class="action" id="redoButton" @onclick="Redo" title="Ctrl+Y / Ctrl+Shift+Z">↷ <span>Újra</span></button>
                 <button class="action" id="clearButton" @onclick="Clear">⌫ <span>Rajz törlése</span></button>
                 <button class="action" @onclick="Export">⇩ <span>PNG letöltése</span></button>
             </div>
@@ -89,6 +90,7 @@
     private async Task SetTool(string tool) => await JS.InvokeVoidAsync("sharedDrawing.setTool", tool);
     private async Task SetColor(string color) => await JS.InvokeVoidAsync("sharedDrawing.setColor", color);
     private async Task Undo() => await JS.InvokeVoidAsync("sharedDrawing.undo");
+    private async Task Redo() => await JS.InvokeVoidAsync("sharedDrawing.redo");
     private async Task Clear() => await JS.InvokeVoidAsync("sharedDrawing.clear");
     private async Task Export() => await JS.InvokeVoidAsync("sharedDrawing.exportPng");
     private async Task SaveRole() => await JS.InvokeVoidAsync("sharedDrawing.saveRole");

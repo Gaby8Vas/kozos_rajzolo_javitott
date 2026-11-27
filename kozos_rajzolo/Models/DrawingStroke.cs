@@ -13,6 +13,8 @@ public sealed class DrawingStroke
     public bool IsEraser { get; set; }
     public string PointsJson { get; set; } = "[]";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    // Visszavonáskor kap értéket; ilyenkor a vonal nem látszik, de az „Újra” visszahozhatja.
+    public DateTime? UndoneAtUtc { get; set; }
 }
 
 public sealed class StrokeDto
